@@ -2,7 +2,7 @@
 
 New dendrapply implementation.
 
-See https://www.ahl27.com/posts/2023/02/dendrapply/ for a quick writeup, I'll improve the formatting later.
+See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the implementation and changes.
 
 Highlights:
 - Unrolled recursion, no stack issues
