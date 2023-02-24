@@ -13,6 +13,7 @@ Highlights:
 - postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities
 
 Tentative Future Features:
+- detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node.
 - inorder traversal
   - I'm not sure if this is useful, and additionally, is inorder traversal even defined for multifurcating trees?
   - Inorder traversals are defined as "visit all children except the rightmost, then root, then the final node". What would be the use case for this kind of traversal?
