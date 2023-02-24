@@ -24,18 +24,20 @@
  *  -   next: next linked list element
  * 
  */
-typedef struct ll_S {
+typedef struct ll_S_dendrapply {
   SEXP node;
   int v;
   int isLeaf;
-  struct ll_S *parent;
-  struct ll_S *next;
-} ll_S;
+  struct ll_S_dendrapply *parent;
+  struct ll_S_dendrapply *next;
+} ll_S_dendrapply;
 
 
 /* Global variable for on.exit() free */
-ll_S *ll;
-PROTECT_INDEX headprot;
+ll_S_dendrapply *dendrapply_ll;
+static SEXP leafSymbol;
+static PROTECT_INDEX headprot;
+static int listint;
 
 /* 
  * Frees the global linked list structure.
@@ -44,19 +46,19 @@ PROTECT_INDEX headprot;
  * execution is stopped early.
  */
 void free_dendrapply_list(){
-  ll_S *ptr = ll;
-  while(ll){
-    ll = ll->next;
+  ll_S_dendrapply *ptr = dendrapply_ll;
+  while(dendrapply_ll){
+    dendrapply_ll = dendrapply_ll->next;
     free(ptr);
-    ptr=ll;
+    ptr=dendrapply_ll;
   }
 
   return;
 }
 
 /* Function to allocate a LL node */
-ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
-  ll_S *link = malloc(sizeof(ll_S));
+ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, SEXP node, int i, short travtype){
+  ll_S_dendrapply *link = malloc(sizeof(ll_S_dendrapply));
 
   if(travtype == 0){
     link->node = NULL;
@@ -65,7 +67,7 @@ ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
     SEXP curnode;
     curnode = VECTOR_ELT(node, i);
     link->node = curnode;
-    link->isLeaf = isNull(getAttrib(curnode, install("leaf"))) ? length(curnode) : 0;
+    link->isLeaf = isNull(getAttrib(curnode, leafSymbol)) ? length(curnode) : 0;
   }
 
   link->next = NULL;
@@ -86,8 +88,8 @@ ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
  * dendrogram isn't a leaf, so this function assmes the dendrogram has 
  * at least two members.
  */
-SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
-  ll_S *ptr, *prev, *parent;
+SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype){
+  ll_S_dendrapply *ptr, *prev, *parent;
   SEXP node, call, newnode;
 
   if(travtype == 0){
@@ -105,7 +107,7 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
     if (travtype==0 && ptr->isLeaf==-1){
       parent = ptr->parent;
       newnode = VECTOR_ELT(parent->node, ptr->v);
-      ptr->isLeaf = isNull(getAttrib(newnode, install("leaf"))) ? length(newnode) : 0;
+      ptr->isLeaf = isNull(getAttrib(newnode, leafSymbol)) ? length(newnode) : 0;
       call = PROTECT(LCONS(f, LCONS(newnode, R_NilValue)));
       newnode = PROTECT(R_forceAndCall(call, 1, env));
       SET_VECTOR_ELT(parent->node, ptr->v, newnode);
@@ -160,8 +162,8 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
       node = ptr->node;
       n = length(node);
 
-      if(isNull(getAttrib(node, install("leaf")))){
-        ll_S *newlink;
+      if(isNull(getAttrib(node, leafSymbol))){
+        ll_S_dendrapply *newlink;
         /*
          * iterating from end to beginning to ensure 
          * we traverse depth-first instead of breadth
@@ -198,20 +200,21 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
  */
 SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
   /* 0 for preorder, 1 for postorder */
+  leafSymbol = install("leaf");
   short travtype = INTEGER(order)[0];
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
 
   /* Add the top of the tree into the list */
-  ll = malloc(sizeof(ll_S));
-  ll->node = treecopy;
-  ll->next = NULL;
-  ll->parent = NULL;
-  ll->isLeaf = length(treecopy);
-  ll->v = -1;
+  dendrapply_ll = malloc(sizeof(ll_S_dendrapply));
+  dendrapply_ll->node = treecopy;
+  dendrapply_ll->next = NULL;
+  dendrapply_ll->parent = NULL;
+  dendrapply_ll->isLeaf = length(treecopy);
+  dendrapply_ll->v = -1;
 
   /* Apply the function to the list */
-  treecopy = new_apply_dend_func(ll, fn, env, travtype);
+  treecopy = new_apply_dend_func(dendrapply_ll, fn, env, travtype);
   
   /* Attempt to free the linked list and unprotect */
 
