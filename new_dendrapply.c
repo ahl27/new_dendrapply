@@ -37,7 +37,6 @@ typedef struct ll_S_dendrapply {
 ll_S_dendrapply *dendrapply_ll;
 static SEXP leafSymbol;
 static PROTECT_INDEX headprot;
-static int listint;
 
 /* 
  * Frees the global linked list structure.
