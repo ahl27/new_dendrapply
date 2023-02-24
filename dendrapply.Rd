@@ -9,7 +9,7 @@ Apply function FUN to each node of a dendrogram recursively. When y <- dendrappl
 }
 \usage{
 dendrapply(X, FUN, ..., 
-            how = c("in.order", "post.order"))
+            how = c("pre.order", "post.order"))
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -23,13 +23,13 @@ An R function to be applied to each dendrogram node, typically working on its \c
 potential further arguments passed to \code{FUN}.
 }
   \item{how}{
-one of \code{c("in.order", "post.order")}, or an unambiguous abbreviation. Determines if nodes should be evaluated according to an inorder (default) or postorder traversal. See details for more information.
+one of \code{c("pre.order", "post.order")}, or an unambiguous abbreviation. Determines if nodes should be evaluated according to an preorder (default) or postorder traversal. See details for more information.
 }
 }
 \details{
-\code{"in.order"} preserves the functionality of the previous \code{dendrapply}. For each node \code{n}, \code{FUN} is applied first to \code{n}, then to \code{n[[1]]} (and any children it may have), then \code{n[[2]]} and its children, etc. 
+\code{"pre.order"} preserves the functionality of the previous \code{dendrapply}. For each node \code{n}, \code{FUN} is applied first to \code{n}, then to \code{n[[1]]} (and any children it may have), then \code{n[[2]]} and its children, etc. Notably, each node is evaluted \emph{prior to any} of its children.
 
-\code{"post.order"} allows for calculations that depend on the children of a given node. For each node \code{n}, \code{FUN} is applied first to \emph{all} children of \code{n}, then is applied to \code{n} itself. 
+\code{"post.order"} allows for calculations that depend on the children of a given node. For each node \code{n}, \code{FUN} is applied first to \emph{all} children of \code{n}, then is applied to \code{n} itself. Notably, each node is evaluated \emph{after all} of its children.
 }
 \value{
 Usually a dendrogram of the same (graph) structure as \code{X}. For that, the function must be conceptually of the form \code{FUN <- function(X) \{ attributes(X) <- .....; X \}}, i.e., returning the node with some attributes added or changed.
@@ -97,8 +97,8 @@ f <- function(x){
 }
 
 # trying with default, note character(0) entries
-inorder_try <- dendrapply(dend, f)
-dendrapply(inorder_try, \(x){ print(attr(x, 'newattr')); x })
+preorder_try <- dendrapply(dend, f)
+dendrapply(preorder_try, \(x){ print(attr(x, 'newattr')); x })
 
 ## trying with postorder, note that children nodes will already 
 ## have been populated, so no character(0) entries

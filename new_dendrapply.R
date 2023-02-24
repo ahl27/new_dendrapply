@@ -3,10 +3,10 @@
 ## -------------
 ## Aidan Lakshman (AHL27@pitt.edu)
 ##
-dendrapply <- function(X, FUN, ..., how=c("in.order", "post.order")){
+dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   apply_method <- match.arg(how)
   travtype <- switch(apply_method,
-                     in.order=0L,
+                     pre.order=0L,
                      post.order=1L)
   ## Free allocated memory in case of early termination
   on.exit(.C("free_dendrapply_list"))

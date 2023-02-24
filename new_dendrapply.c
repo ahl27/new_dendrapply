@@ -197,7 +197,7 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
  * account for this.
  */
 SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
-  /* 0 for inorder, 1 for postorder */
+  /* 0 for preorder, 1 for postorder */
   short travtype = INTEGER(order)[0];
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
