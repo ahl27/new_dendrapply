@@ -30,7 +30,6 @@ typedef struct ll_S {
   int isLeaf;
   struct ll_S *parent;
   struct ll_S *next;
-  char isProtected;
 } ll_S;
 
 
@@ -60,13 +59,10 @@ ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
   ll_S *link = malloc(sizeof(ll_S));
 
   if(travtype == 0){
-    /* lazy evaluation of the nodes to conserve PROTECT calls */
     link->node = NULL;
     link->isLeaf = -1;
   } else if (travtype == 1){
     SEXP curnode;
-    /* lazy evaluation of the nodes to conserve PROTECT calls */
-    //link->node = NULL;
     curnode = VECTOR_ELT(node, i);
     link->node = curnode;
     link->isLeaf = isNull(getAttrib(curnode, install("leaf"))) ? length(curnode) : 0;
@@ -75,7 +71,6 @@ ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
   link->next = NULL;
   link->v = i;
   link->parent = parentlink;
-  link->isProtected = 0;
 
   return link;
 }
@@ -94,9 +89,7 @@ ll_S* alloc_link(ll_S* parentlink, SEXP node, int i, short travtype){
 SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
   ll_S *ptr, *prev, *parent;
   SEXP node, call, newnode;
-  PROTECT_INDEX callptr;
 
-  /* Reserve space in the protect stack and process root */
   if(travtype == 0){
     call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
     REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
@@ -109,11 +102,10 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
   while(ptr){
     R_CheckUserInterrupt();
     /* lazily populate node, apply function to it as well */
-    if (travtype==0 && !(ptr->isProtected)){
+    if (travtype==0 && ptr->isLeaf==-1){
       parent = ptr->parent;
       newnode = VECTOR_ELT(parent->node, ptr->v);
       ptr->isLeaf = isNull(getAttrib(newnode, install("leaf"))) ? length(newnode) : 0;
-      //REPROTECT(call = LCONS(f, LCONS(newnode, R_NilValue)), callptr);
       call = PROTECT(LCONS(f, LCONS(newnode, R_NilValue)));
       newnode = PROTECT(R_forceAndCall(call, 1, env));
       SET_VECTOR_ELT(parent->node, ptr->v, newnode);
@@ -121,10 +113,9 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
 
       /* double ELT because it avoids a protect */
       ptr->node = VECTOR_ELT(parent->node, ptr->v);
-      ptr->isProtected = 1;
     }
 
-    if (ptr->isProtected == 2){
+    if (ptr->isLeaf == -2){
       /* these are nodes flagged for deletion */
       prev->next = prev->next->next;
       free(ptr);
@@ -136,7 +127,8 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
       * apply the function to it and then merge it upwards
       */
       while(ptr->isLeaf == 0 && ptr != head){
-        /* merge upwards, 
+        /* 
+         * merge upwards, 
          * protection unneeded since parent already protected 
          */
         prev = ptr->parent;
@@ -154,7 +146,7 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
         prev->isLeaf -= 1;
 
         /* flag node for deletion later */
-        ptr->isProtected = 2;
+        ptr->isLeaf = -2;
         ptr = prev;
         prev = ptr;
         R_CheckUserInterrupt();
@@ -205,6 +197,7 @@ SEXP new_apply_dend_func(ll_S *head, SEXP f, SEXP env, short travtype){
  * account for this.
  */
 SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
+  /* 0 for inorder, 1 for postorder */
   short travtype = INTEGER(order)[0];
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
@@ -216,7 +209,6 @@ SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
   ll->parent = NULL;
   ll->isLeaf = length(treecopy);
   ll->v = -1;
-  ll->isProtected = 1;
 
   /* Apply the function to the list */
   treecopy = new_apply_dend_func(ll, fn, env, travtype);
@@ -227,6 +219,3 @@ SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
   UNPROTECT(1);
   return treecopy;
 }
-
-
-
