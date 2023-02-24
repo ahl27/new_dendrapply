@@ -6,7 +6,7 @@
  * Contact: AHL27@pitt.edu
  *
  * This is a set of C functions that apply an R function to all internal
- * nodes of a dendrogram object. This implementation runs roughly 3x
+ * nodes of a dendrogram object. This implementation runs roughly 2x
  * faster than base `stats::dendrapply`, and deals with dendrograms
  * with high numbers of internal branches. Notably, this implementation
  * unrolls the recursion to prevent any possible stack overflow errors. 
