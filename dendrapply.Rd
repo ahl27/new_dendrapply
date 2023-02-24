@@ -83,7 +83,7 @@ op <- par(mfrow = 2:1)
  plot(dL) ## --> colored labels!
 par(op)
 
-## Illustrating difference between in.order and post.order
+## Illustrating difference between pre.order and post.order
 dend <- as.dendrogram(hclust(dist(seq_len(4L))))
 
 f <- function(x){
