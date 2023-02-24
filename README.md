@@ -15,8 +15,12 @@ Highlights:
 Tentative Future Features:
 - inorder traversal
   - I'm not sure if this is useful, and additionally, is inorder traversal even defined for multifurcating trees?
+  - Inorder traversals are defined as "visit all children except the rightmost, then root, then the final node". What would be the use case for this kind of traversal?
+- breadth-first traversal
+  - This could be useful, but I find the result a little counterintuitive for `dendrogram` objects. 
 - something like a `flatten` argument that can report the result as a flat list/vector.
   - traversal method would be very useful here, would function like `rapply` but on internal nodes.
+  - This is probably the highest priority next feature
 
 
 Note that at one point I mistakenly referred to "preorder" traversal as "inorder", which was a mistake. This has been corrected everywhere it appears--the functionality is all correct, just the term was incorrect.
