@@ -11,3 +11,8 @@ Highlights:
 - Support for inorder and postorder traversal for applying functions to dendrogram
 - default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
 - postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities
+
+Tentative Future Features:
+- preorder traversal
+- something like a `flatten` argument that can report the result as a flat list/vector.
+  - traversal method would be very useful here, would function like `rapply` but on internal nodes.
