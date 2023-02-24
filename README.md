@@ -10,3 +10,4 @@ Highlights:
 - Significant memory improvement (still working on concrete benchmarks aside from `profvis`)
 - Support for inorder and postorder traversal for applying functions to dendrogram
 - inorder traversal exactly replicates `stats::dendrapply`, passes all unit tests in `dendextend`
+- postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities
