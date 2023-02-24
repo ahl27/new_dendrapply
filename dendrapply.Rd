@@ -82,6 +82,29 @@ op <- par(mfrow = 2:1)
  plot(dhc21)
  plot(dL) ## --> colored labels!
 par(op)
+
+## Illustrating difference between in.order and post.order
+dend <- as.dendrogram(hclust(dist(seq_len(4L))))
+
+f <- function(x){
+  if(!is.null(attr(x, 'leaf'))){
+    v <- as.character(attr(x, 'label'))
+  } else {
+    v <- paste0(attr(x[[1]], 'newattr'), attr(x[[2]], 'newattr'))
+  }
+  attr(x, 'newattr') <- v
+  x
+}
+
+# trying with default, note character(0) entries
+inorder_try <- dendrapply(dend, f)
+dendrapply(inorder_try, \(x){ print(attr(x, 'newattr')); x })
+
+## trying with postorder, note that children nodes will already 
+## have been populated, so no character(0) entries
+postorder_try <- dendrapply(dend, f, how='post.order')
+dendrapply(postorder_try, \(x){ print(attr(x, 'newattr')); x })
+
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory (show via RShowDoc("KEYWORDS")):
