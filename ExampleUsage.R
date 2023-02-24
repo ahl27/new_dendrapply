@@ -3,7 +3,6 @@ path_to_rfile <- './new_dendrapply.R'
 ######################################
 
 ##### Loading Shared Library #####
-library(dendextend)
 rcmdbuild <- paste0("R CMD SHLIB ", path_to_cfile)
 path_to_so <- gsub('(.*)\\.c$', '\\1.so', path_to_cfile)
 system(rcmdbuild)
@@ -14,10 +13,7 @@ source(path_to_rfile)
 
 
 make_balanced_tree <- function(num_leaves){
-  seq_len(num_leaves) %>%
-    dist() %>%
-    hclust() %>%
-    as.dendrogram() 
+  return(as.dendrogram(hclust(dist(seq_len(num_leaves)))))
 }
 
 # function modifying nodes
