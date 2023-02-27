@@ -1,5 +1,4 @@
-#include <R.h>
-#include <Rdefines.h>
+#include "new_dendrapply.h"
 
 /*
  * Author: Aidan Lakshman
@@ -27,7 +26,8 @@
 typedef struct ll_S_dendrapply {
   SEXP node;
   int v;
-  int isLeaf;
+  unsigned int remove : 1;
+  signed int isLeaf : 7;
   struct ll_S_dendrapply *parent;
   struct ll_S_dendrapply *next;
 } ll_S_dendrapply;
@@ -72,6 +72,7 @@ ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, SEXP node, int i, short
   link->next = NULL;
   link->v = i;
   link->parent = parentlink;
+  link->remove = 0;
 
   return link;
 }
@@ -116,7 +117,7 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
       ptr->node = VECTOR_ELT(parent->node, ptr->v);
     }
 
-    if (ptr->isLeaf == -2){
+    if (ptr->remove){
       /* these are nodes flagged for deletion */
       prev->next = prev->next->next;
       free(ptr);
@@ -147,7 +148,7 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
         prev->isLeaf -= 1;
 
         /* flag node for deletion later */
-        ptr->isLeaf = -2;
+        ptr->remove = 1;
         ptr = prev;
         prev = ptr;
         R_CheckUserInterrupt();
@@ -211,6 +212,7 @@ SEXP do_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
   dendrapply_ll->parent = NULL;
   dendrapply_ll->isLeaf = length(treecopy);
   dendrapply_ll->v = -1;
+  dendrapply_ll->remove = 0;
 
   /* Apply the function to the list */
   treecopy = new_apply_dend_func(dendrapply_ll, fn, env, travtype);
