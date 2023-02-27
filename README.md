@@ -14,7 +14,7 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 - Default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
 - Postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
 
-Note that leaf nodes are identified as elements with an attribute `'leaf'` that is set to `TRUE`, and internal nodes are identified as either elements with no attribute `'leaf'` or an attribute `'leaf'` that is set to `FALSE`. This conforms with how `dendrogram` objects are structured, but users may experience unexpected behavior if they decide to fiddle with the `leaf` attributes. This is recognized as a problem in the same way that users being able to arbitrarily change S3 classes of an object is a problem; normal users should never experience issues from this, and ones that use malformed `dendrogram`s are proceeding at their own risk.
+Note that leaf nodes are identified as elements with an attribute `'leaf'` that is set to `TRUE`, and internal nodes are identified as either elements with no attribute `'leaf'` or an attribute `'leaf'` that is set to `FALSE`. This conforms with how `dendrogram` objects are structured, but users may experience unexpected behavior if they decide to fiddle with `leaf` attributes. This is recognized as a problem in the same way that users being able to arbitrarily change S3 classes of an object is a problem; normal users should never experience issues from this, and ones that use malformed `dendrogram`s are proceeding at their own risk.
 
 ## Tentative Future Features:
 - Inorder traversal
