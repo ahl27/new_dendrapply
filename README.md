@@ -1,6 +1,6 @@
 # new_dendrapply
 
-New dendrapply implementation.
+New dendrapply implementation. Bug reports and suggestions for improvement are welcome.
 
 See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the implementation and changes.
 
@@ -9,22 +9,24 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 - 2-3x runtime speedup
 - Significant memory improvement (observed up to 10x reduction in `profvis`, still working on concrete benchmarks aside from that)
 - Support for preorder and postorder traversal for applying functions to dendrogram
-- default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
-- postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
+- Default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
+- Postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
 
 ## Tentative Future Features:
-- detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node or adds a `leaf` attribute to a non leaf (ex. setting `attr(node, 'leaf') <- FALSE` for internal nodes)
-- inorder traversal
-  - I'm not sure if this is useful, and additionally, is inorder traversal even defined for multifurcating trees?
+- Detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node or adds a `leaf` attribute to a non leaf (ex. setting `attr(node, 'leaf') <- FALSE` for internal nodes)
+- Inorder traversal
+  - I'm not sure if this is useful, especially for multifurcating trees.
   - Inorder traversals are defined as "visit all children except the rightmost, then root, then the final node". What would be the use case for this kind of traversal?
-- breadth-first traversal
+- Breadth-first traversal
   - This could be useful, but I find the result a little counterintuitive for `dendrogram` objects. 
-- something like a `flatten` argument that can report the result as a flat list/vector.
+  - Not critical for release, maybe something to visit in the distant future. Implementation slightly harder than I expected.
+- Something like a `flatten` argument that can report the result as a flat list/vector.
   - traversal method would be very useful here, would function like `rapply` but on internal nodes.
-  - This is probably the highest priority next feature
+  - This is probably the highest priority next feature.
+  - This would probably require a bit of a code refactor, there's a lot of special cases that make it difficult with the current approach.
 
 
-Note that at one point I mistakenly referred to "preorder" traversal as "inorder", which was a mistake. This has been corrected everywhere it appears--the functionality is all correct, just the term was incorrect.
+Note that at one point I mistakenly referred to "preorder" traversal as "inorder", which was a mistake. This has been corrected everywhere it appears--the functionality is all correct, just the nomeclature was wrong.
 
 ## Benchmarking:
 
