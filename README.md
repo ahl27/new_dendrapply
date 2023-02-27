@@ -7,7 +7,9 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 ## Highlights:
 - Unrolled recursion, no stack issues
 - 2-3x runtime speedup
-- Significant memory improvement (observed up to 10x reduction in `profvis`, still working on concrete benchmarks aside from that)
+- Significant memory improvement 
+  - Observed up to 10x reduction in `profvis`, still working on concrete benchmarks aside from that
+  - Difficult to measure difference since `stats` uses R for memory and new implementation allocates in C
 - Support for preorder and postorder traversal for applying functions to dendrogram
 - Default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
 - Postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
