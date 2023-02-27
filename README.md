@@ -13,7 +13,7 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 - postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
 
 ## Tentative Future Features:
-- detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node.
+- detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node or adds a `leaf` attribute to a non leaf (ex. setting `attr(node, 'leaf') <- FALSE` for internal nodes)
 - inorder traversal
   - I'm not sure if this is useful, and additionally, is inorder traversal even defined for multifurcating trees?
   - Inorder traversals are defined as "visit all children except the rightmost, then root, then the final node". What would be the use case for this kind of traversal?
