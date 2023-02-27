@@ -33,7 +33,7 @@ Runtime benchmarks were performed using `microbenchmark::microbenchmark` with 10
 ```{r}
 f <- \(x){ x }
 ```
-This function is the fastest possible function we can run in `dendrapply`, and was chosen to ensure the measured time only compares execution speed of the apply statements themselves, not of the called function's execution time. Longer running functions dominate execution time and would bias the results. Speedup for small trees is highly variable; this is likely due to lower accuracy measurements from `microbenchmark` at very fast speeds. Trees with greater than 30,000 leaves are difficult to create due to vector memory limits in R.
+This function is the fastest possible function we can run in `dendrapply`, and was chosen to ensure the measured time only compares execution speed of the apply statements themselves, not of the called function's execution time. Longer running functions dominate execution time and would bias the results. Speedup for small trees (under 11 leaves) is highly variable; this is likely due to lower accuracy measurements from `microbenchmark` at very fast speeds. Trees with greater than 30,000 leaves are difficult to create due to vector memory limits in R.
 
  | num_leaves | Old (ms) | New (ms) | speedup | 
  | ----: | ----: | ----: | :----: | 
