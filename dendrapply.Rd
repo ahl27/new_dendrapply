@@ -47,6 +47,9 @@ The prior implementation of \code{dendrapply} was recursive and inefficient for 
 }
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
+\section{Warning}{
+\code{dendrapply} identifies leaf nodes as nodes such that \code{attr(node, 'leaf')}. If you modify or remove this attribute, \code{dendrapply} may hang.
+}
 
 \seealso{
 \code{\link{as.dendrogram}}, \code{\link[base]{lapply}} for applying a function to each component of a list. 
