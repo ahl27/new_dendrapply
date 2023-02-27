@@ -14,8 +14,9 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 - Default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
 - Postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
 
+Note that leaf nodes are identified as elements with an attribute `'leaf'` that is set to `TRUE`, and internal nodes are identified as either elements with no attribute `'leaf'` or an attribute `'leaf'` that is set to `FALSE`. This conforms with how `dendrogram` objects are structured, but users may experience unexpected behavior if they decide to fiddle with the `leaf` attributes. This is recognized as a problem in the same way that users being able to arbitrarily change S3 classes of an object is a problem; normal users should never experience issues from this, and ones that use malformed `dendrogram`s are proceeding at their own risk.
+
 ## Tentative Future Features:
-- Detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node or adds a `leaf` attribute to a non leaf (ex. setting `attr(node, 'leaf') <- FALSE` for internal nodes)
 - Inorder traversal
   - I'm not sure if this is useful, especially for multifurcating trees.
   - Inorder traversals are defined as "visit all children except the rightmost, then root, then the final node". What would be the use case for this kind of traversal?
@@ -26,7 +27,6 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
   - traversal method would be very useful here, would function like `rapply` but on internal nodes.
   - This is probably the highest priority next feature.
   - This would probably require a bit of a code refactor, there's a lot of special cases that make it difficult with the current approach.
-
 
 Note that at one point I mistakenly referred to "preorder" traversal as "inorder", which was a mistake. This has been corrected everywhere it appears--the functionality is all correct, just the nomeclature was wrong.
 
