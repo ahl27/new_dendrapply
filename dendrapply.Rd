@@ -48,7 +48,7 @@ The prior implementation of \code{dendrapply} was recursive and inefficient for 
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 \section{Warning}{
-\code{dendrapply} identifies leaf nodes as nodes such that \code{attr(node, 'leaf')}. If you modify or remove this attribute, \code{dendrapply} may hang.
+\code{dendrapply} identifies leaf nodes as nodes such that \code{attr(node, 'leaf') == TRUE}, and internal nodes as nodes such that \code{attr(node, 'leaf') \%in\% c(NULL, FALSE)}. If you modify or remove this attribute, \code{dendrapply} may perform unexpectedly.
 }
 
 \seealso{
