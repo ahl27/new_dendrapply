@@ -10,7 +10,7 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 - Significant memory improvement (observed up to 10x reduction in `profvis`, still working on concrete benchmarks aside from that)
 - Support for preorder and postorder traversal for applying functions to dendrogram
 - default settings are a drop-in replacement for `stats::dendrapply`, passes all unit tests in `dendextend`
-- postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities
+- postorder traversal ensures children of node are evaluated before node itself, allowing more possibilities for functions to be applied
 
 ## Tentative Future Features:
 - detection of leaves depends on the nodes having an attribute `'leaf'` that is non-null. Some type of failsafe should be added in the event a user overwrites the `leaf` attribute of a leaf node.
