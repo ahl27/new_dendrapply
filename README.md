@@ -26,9 +26,9 @@ See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the
 
 Note that at one point I mistakenly referred to "preorder" traversal as "inorder", which was a mistake. This has been corrected everywhere it appears--the functionality is all correct, just the term was incorrect.
 
-## Benchmark
+## Benchmarking:
 
-Benchmarks were performed using `microbenchmark::microbenchmark` with 100 replications on random balanced trees with the following function:
+Runtime benchmarks were performed using `microbenchmark::microbenchmark` with 100 replications on random balanced trees with the following function:
 
 ```{r}
 f <- \(x){ x }
