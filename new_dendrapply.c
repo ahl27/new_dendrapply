@@ -18,6 +18,7 @@
  * Each node of the tree is added with the following args:
  *  -   node: tree node, as a pointer to SEXPREC object
  *  -      v: location in parent node's list
+ *  - remove: boolean indicating if a node should be removed from the linked list.
  *  - isLeaf: Counter encoding unmerged children. 0 if leaf or leaf-like subtree.
  *  - parent: pointer to node holding the parent node in the tree
  *  -   next: next linked list element
@@ -58,6 +59,7 @@ void free_dendrapply_list(){
 /* Function to allocate a LL node */
 ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, SEXP node, int i, short travtype){
   ll_S_dendrapply *link = malloc(sizeof(ll_S_dendrapply));
+  SEXP ls;
 
   if(travtype == 0){
     link->node = NULL;
@@ -66,7 +68,9 @@ ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, SEXP node, int i, short
     SEXP curnode;
     curnode = VECTOR_ELT(node, i);
     link->node = curnode;
-    link->isLeaf = isNull(getAttrib(curnode, leafSymbol)) ? length(curnode) : 0;
+    ls = getAttrib(curnode, leafSymbol);
+    link->isLeaf = (isNull(ls) || (!LOGICAL(ls)[0]) )? length(curnode) : 0;
+    //link->isLeaf = isNull(getAttrib(curnode, leafSymbol)) ? length(curnode) : 0;
   }
 
   link->next = NULL;
@@ -81,16 +85,14 @@ ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, SEXP node, int i, short
 /*
  * Main workhorse function.
  * 
- * This function traverses the tree INORDER (as in stats::dendrapply)
- * and applies the function to each node, then adds its children to
- * the linked list. Once all the children of a node have been processed,
- * the child subtrees are combined into the parent. R ensures that the
+ * This function traverses the tree according to the traversal style
+ * specified, applying the R function as necessary. R ensures that the
  * dendrogram isn't a leaf, so this function assmes the dendrogram has 
  * at least two members.
  */
 SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype){
   ll_S_dendrapply *ptr, *prev, *parent;
-  SEXP node, call, newnode;
+  SEXP node, call, newnode, leafVal;
 
   if(travtype == 0){
     call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
@@ -107,7 +109,8 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
     if (travtype==0 && ptr->isLeaf==-1){
       parent = ptr->parent;
       newnode = VECTOR_ELT(parent->node, ptr->v);
-      ptr->isLeaf = isNull(getAttrib(newnode, leafSymbol)) ? length(newnode) : 0;
+      leafVal = getAttrib(newnode, leafSymbol);
+      ptr->isLeaf = (isNull(leafVal) || (!LOGICAL(leafVal)[0])) ? length(newnode) : 0;
       call = PROTECT(LCONS(f, LCONS(newnode, R_NilValue)));
       newnode = PROTECT(R_forceAndCall(call, 1, env));
       SET_VECTOR_ELT(parent->node, ptr->v, newnode);
@@ -161,8 +164,9 @@ SEXP new_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype
       /* ptr->isLeaf != 0, so we need to add nodes */
       node = ptr->node;
       n = length(node);
-
-      if(isNull(getAttrib(node, leafSymbol))){
+      leafVal = getAttrib(node, leafSymbol);
+      
+      if(isNull(leafVal) || (!LOGICAL(leafVal)[0])){
         ll_S_dendrapply *newlink;
         /*
          * iterating from end to beginning to ensure 
