@@ -16,7 +16,7 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
     # nodes coming in should always be dendrograms
     class(node) <- 'dendrogram'
     res<-FUN(node, ...)
-    if(length(node)!=1){
+    if(!is.leaf(node)){
       if(!(inherits(res,c('dendrogram', 'list')))){
         res <- lapply(unclass(node), \(x) x)
       } 
@@ -26,7 +26,7 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   # If we only have one node, it'll hang
   # We can get around this by just applying the function to the leaf
   # and returning--no need for C code here.
-  if(!is.null(attr(X, 'leaf')) && attr(X,'leaf')){
+  if(is.leaf(X)){
     return(wrapper(X))
   }
   return(.Call("do_dendrapply", X, wrapper, parent.frame(), travtype))

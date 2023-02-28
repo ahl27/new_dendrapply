@@ -41,6 +41,8 @@ If the function provided does not return the node, the result is a nested list o
 }
 \author{
 Aidan Lakshman \email{ahl27@pitt.edu}
+
+Original function and documentation by Martin Maechler.
 }
 \note{
 The prior implementation of \code{dendrapply} was recursive and inefficient for dendrograms with many non-leaves. This version is no longer recursive, and thus should no longer cause issues stemming from insufficient C stack size (as mentioned in the 'Warning' in \code{\link[stats]{dendrogram}}).
