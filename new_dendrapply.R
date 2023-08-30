@@ -1,5 +1,5 @@
 ##
-## dendrapply: applies function recursively to dendrogram object
+## dendrapply: applies function to all nodes of dendrogram object
 ## -------------
 ## Aidan Lakshman (AHL27@pitt.edu)
 ##
@@ -9,10 +9,12 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
                      pre.order=0L,
                      post.order=1L)
 
+  ## We may be able to drop this later
   if (!inherits(X, "dendrogram")) 
         stop("'X' is not a dendrogram")
 
   ## If a user has their own subset operations, we have to handle them
+  ## TODO: implement how this works on the backend
   vf <- unlist(lapply(class(X), \(cls) getS3method("[[", cls, optional=TRUE)))
   shouldUseFast <- length(vf) <= 1 && identical(environment(vf), environment(stats::dendrapply))
 

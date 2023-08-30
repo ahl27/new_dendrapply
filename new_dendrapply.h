@@ -27,7 +27,7 @@ ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* p
 ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, int i);
 SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass);
 SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env);
-SEXP main_apply_dend_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype, int fast);
+SEXP dendrapply_internal_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype, int fast);
 
 
 /* .C Interface Functions */
