@@ -49,8 +49,8 @@ ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, int i){
  * Assign the child of a node to a link
  * Some traversals use lazy evaluation; this fills in these unevaluated nodes
  */
-ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentlink, int i, int fast){
-  SEXP curnode = get_dend_child(parentlink, i, fast, 1);
+ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentlink, int i, int fast, SEXP env){
+  SEXP curnode = get_dend_child(parentlink, i, fast, 1, env);
   link->node = curnode;
   SEXP ls = getAttrib(curnode, leafSymbol);
   link->isLeaf = (isNull(ls) || (!LOGICAL(ls)[0])) ? length(curnode) : 0;
@@ -65,37 +65,33 @@ ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* p
  * If fast is TRUE, we just use stats:::`[[.dendrogram`
  * If fast is FALSE, we build and apply a call to node[[i]] (NOT YET IMPLEMENTED)
  */
-SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass){
-  /*
+SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass, SEXP env){
   SEXP curnode;
   if(fast){
     curnode = VECTOR_ELT(link->node, i);
     if(shouldReclass)
       classgets(curnode, class);
   } else {
+    /*
      * Build call like in lapply: FUN(X[[<ind>]], ...)
      * does this need to be protected?
-    Rprintf("i: %d\n");
-    INTEGER(iSEXPval)[0] = i;
-    SEXP tmp = PROTECT(lang3(install("[["), link->node, iSEXPval));
-    curnode = R_forceAndCall(tmp, 1, env);
-    UNPROTECT(1);
+     */
+    INTEGER(iSEXPval)[0] = i+1;
+    //SEXP tmp = PROTECT(lang3(install("[["), link->node, iSEXPval));
+    // curnode = R_forceAndCall(lang3(install("[["), link->node, iSEXPval), 1, env);
+    curnode = R_forceAndCall(lang3(R_Bracket2Symbol, link->node, iSEXPval), 1, env);
+    //UNPROTECT(1);
   }
-  */
 
-  SEXP curnode = VECTOR_ELT(link->node, i);
-  if(shouldReclass)
-    classgets(curnode, class);
   return(curnode);
 }
 
 /*
  * Apply function to a dendrogram node
- * CONSUMES TWO SPACES ON PROTECT STACK
+ * CONSUMES ONE SPACE ON PROTECT STACK
  */
 SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env){
-  SEXP call = PROTECT(LCONS(f, LCONS(link->node, R_NilValue)));
-  SEXP newnode = PROTECT(R_forceAndCall(call, 1, env));
+  SEXP newnode = PROTECT(R_forceAndCall(lang2(f, link->node), 1, env));
   return(newnode);
 }
 
@@ -129,13 +125,11 @@ void free_dendrapply_list(){
  */
 SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short travtype, int fast){
   ll_S_dendrapply *ptr, *prev;
-  SEXP node, call, newnode, leafVal;
+  SEXP node, newnode, leafVal;
 
   /* for inorder traversal, apply function to root and reprotect it */
   if(travtype == 0){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
-    REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
-    UNPROTECT(1);
+    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
   }
 
   int n, nv;
@@ -145,7 +139,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
     R_CheckUserInterrupt();
     /* lazily populate node, apply function to it as well */
     if (travtype==0 && ptr->isLeaf==-1){
-      ptr = assign_dendnode_child(ptr, ptr->parent, ptr->v, fast);
+      ptr = assign_dendnode_child(ptr, ptr->parent, ptr->v, fast, env);
       ptr->node = apply_func_dend_node(ptr, f, env);
 
       n = length(ptr->parent->node);
@@ -157,10 +151,10 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         nv += ptr->parent->origLength;
       }
 
-      UNPROTECT(2);
+      UNPROTECT(1);
 
       /* double child access because it avoids a protect */
-      ptr->node = get_dend_child(ptr->parent, ptr->v, fast, 0);
+      ptr->node = get_dend_child(ptr->parent, ptr->v, fast, 0, env);
     }
 
     if (ptr->remove){
@@ -186,7 +180,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
           newnode = apply_func_dend_node(ptr, f, env);
           prev = ptr->parent;
           SET_VECTOR_ELT(prev->node, ptr->v, newnode);
-          UNPROTECT(2);
+          UNPROTECT(1);
         }
         prev->isLeaf -= 1;
 
@@ -215,7 +209,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         for(int i=n-1; i>=0; i--){
           newlink = alloc_link(ptr, i);
           if(travtype == 1)
-            newlink = assign_dendnode_child(newlink, ptr, i, fast);
+            newlink = assign_dendnode_child(newlink, ptr, i, fast, env);
           newlink->next = ptr->next;
           ptr->next = newlink;
         }
@@ -227,9 +221,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
 
   /* apply function to the root node (last) if post-order traversal */
   if (travtype == 1){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
-    REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
-    UNPROTECT(1);
+    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
   }
   
   return head->node;

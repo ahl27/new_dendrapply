@@ -3,7 +3,7 @@
 ## -------------
 ## Aidan Lakshman (AHL27@pitt.edu)
 ##
-dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
+dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order"), useFast=TRUE){
   apply_method <- match.arg(how)
   travtype <- switch(apply_method,
                      pre.order=0L,
@@ -21,7 +21,7 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   #methodLookup <- lapply(class(X), function(cls) getS3method("[[", cls, optional=TRUE))
   #methodLookup <- unlist(methodLookup)[[1]]
   #useFastOps <- identical(methodLookup, stats:::`[[.dendrogram`)
-  useFastOps <- TRUE
+  #useFastOps <- TRUE
 
   ## Free allocated memory in case of early termination
   on.exit(.C("free_dendrapply_list"))
@@ -48,6 +48,6 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   }
 
   ## Else we apply the function to all nodes
-  return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, useFastOps))
-  #return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, TRUE))
+  #return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, useFastOps))
+  return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, useFast))
 }
