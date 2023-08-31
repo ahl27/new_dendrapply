@@ -26,7 +26,7 @@
 /* Global variable for on.exit() free */
 ll_S_dendrapply *dendrapply_ll;
 static SEXP leafSymbol, iSEXPval, class;
-static PROTECT_INDEX headprot;
+static PROTECT_INDEX headprot, tmpprot;
 
 /* 
  * Function to allocate a dummy LL node 
@@ -79,8 +79,8 @@ SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass, S
     INTEGER(iSEXPval)[0] = i+1;
     //SEXP tmp = PROTECT(lang3(install("[["), link->node, iSEXPval));
     // curnode = R_forceAndCall(lang3(install("[["), link->node, iSEXPval), 1, env);
-    curnode = R_forceAndCall(lang3(R_Bracket2Symbol, link->node, iSEXPval), 1, env);
-    //UNPROTECT(1);
+    REPROTECT(curnode = R_forceAndCall(lang3(R_Bracket2Symbol, link->node, iSEXPval), 1, env), &tmpprot);
+    SET_VECTOR_ELT(link->parent->node, i, curnode);
   }
 
   return(curnode);
@@ -90,9 +90,8 @@ SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass, S
  * Apply function to a dendrogram node
  * CONSUMES ONE SPACE ON PROTECT STACK
  */
-SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env){
-  SEXP newnode = PROTECT(R_forceAndCall(lang2(f, link->node), 1, env));
-  return(newnode);
+inline SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env){
+  return(PROTECT(R_forceAndCall(lang2(f, link->node), 1, env)));
 }
 
 /* 
@@ -249,6 +248,7 @@ SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order, SEXP isFast){
   } else {
     /* slow execution asks R for `[[` on the object z*/
     iSEXPval = PROTECT(allocVector(INTSXP, 1));
+    PROTECT_WITH_INDEX(SEXP tmpVal = R_NilValue, &tmpprot);
   }
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
