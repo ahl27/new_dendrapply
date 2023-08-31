@@ -9,19 +9,10 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
                      pre.order=0L,
                      post.order=1L)
 
-  ## We may be able to drop this later
+  ## At some point I'd like to open this up to general nested lists
+  ## This would require an alternate way to determine what is a leaf
   if (!inherits(X, "dendrogram")) 
         stop("'X' is not a dendrogram")
-
-  ## If a user has their own subset operations, we'll respect them
-  ## This comes at the cost of performance, 
-  ## so if X dispatches to `[[.dendrogram` we'll just run the fast version
-  
-  ## TODO: implement how this works on the backend
-  #methodLookup <- lapply(class(X), function(cls) getS3method("[[", cls, optional=TRUE))
-  #methodLookup <- unlist(methodLookup)[[1]]
-  #useFastOps <- identical(methodLookup, stats:::`[[.dendrogram`)
-  useFastOps <- TRUE
 
   ## Free allocated memory in case of early termination
   on.exit(.C("free_dendrapply_list"))
@@ -48,6 +39,5 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   }
 
   ## Else we apply the function to all nodes
-  return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, useFastOps))
-  #return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype, TRUE))
+  return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype))
 }

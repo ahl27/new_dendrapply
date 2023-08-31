@@ -23,15 +23,15 @@ typedef struct ll_S_dendrapply {
 } ll_S_dendrapply;
 
 /* helper functions */
-ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentnode_R, int i, int fast);
+ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentnode_R, int i);
 ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, int i);
-SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass);
+SEXP get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass);
 SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env);
-SEXP dendrapply_internal_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype, int fast);
+SEXP dendrapply_internal_func(ll_S_dendrapply *head, SEXP f, SEXP env, short travtype);
 
 
 /* .C Interface Functions */
 void free_dendrapply_list(void);
 
 /* .Call Interface Functions */
-SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order, SEXP isFast);
+SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);

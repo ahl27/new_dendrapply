@@ -25,7 +25,7 @@
 
 /* Global variable for on.exit() free */
 ll_S_dendrapply *dendrapply_ll;
-static SEXP leafSymbol, iSEXPval, class;
+static SEXP leafSymbol, class;
 static PROTECT_INDEX headprot;
 
 /* 
@@ -49,8 +49,8 @@ ll_S_dendrapply* alloc_link(ll_S_dendrapply* parentlink, int i){
  * Assign the child of a node to a link
  * Some traversals use lazy evaluation; this fills in these unevaluated nodes
  */
-ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentlink, int i, int fast){
-  SEXP curnode = get_dend_child(parentlink, i, fast, 1);
+ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* parentlink, int i){
+  SEXP curnode = get_dend_child(parentlink, i, 1);
   link->node = curnode;
   SEXP ls = getAttrib(curnode, leafSymbol);
   link->isLeaf = (isNull(ls) || (!LOGICAL(ls)[0])) ? length(curnode) : 0;
@@ -61,28 +61,10 @@ ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* p
 
 /*
  * Get the i'th element of a dendrogram node
- *
- * If fast is TRUE, we just use stats:::`[[.dendrogram`
- * If fast is FALSE, we build and apply a call to node[[i]] (NOT YET IMPLEMENTED)
+ * Replicates functionality of stats:::`[[.dendrogram` 
+ * without having to go back into R
  */
-SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass){
-  /*
-  SEXP curnode;
-  if(fast){
-    curnode = VECTOR_ELT(link->node, i);
-    if(shouldReclass)
-      classgets(curnode, class);
-  } else {
-     * Build call like in lapply: FUN(X[[<ind>]], ...)
-     * does this need to be protected?
-    Rprintf("i: %d\n");
-    INTEGER(iSEXPval)[0] = i;
-    SEXP tmp = PROTECT(lang3(install("[["), link->node, iSEXPval));
-    curnode = R_forceAndCall(tmp, 1, env);
-    UNPROTECT(1);
-  }
-  */
-
+SEXP get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
   SEXP curnode = VECTOR_ELT(link->node, i);
   if(shouldReclass)
     classgets(curnode, class);
@@ -127,7 +109,7 @@ void free_dendrapply_list(){
  * R ensures that the dendrogram isn't a leaf, so this function assmes 
  * the dendrogram has at least two members.
  */
-SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short travtype, int fast){
+SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short travtype){
   ll_S_dendrapply *ptr, *prev;
   SEXP node, call, newnode, leafVal;
 
@@ -145,7 +127,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
     R_CheckUserInterrupt();
     /* lazily populate node, apply function to it as well */
     if (travtype==0 && ptr->isLeaf==-1){
-      ptr = assign_dendnode_child(ptr, ptr->parent, ptr->v, fast);
+      ptr = assign_dendnode_child(ptr, ptr->parent, ptr->v);
       ptr->node = apply_func_dend_node(ptr, f, env);
 
       n = length(ptr->parent->node);
@@ -160,7 +142,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
       UNPROTECT(2);
 
       /* double child access because it avoids a protect */
-      ptr->node = get_dend_child(ptr->parent, ptr->v, fast, 0);
+      ptr->node = get_dend_child(ptr->parent, ptr->v, 0);
     }
 
     if (ptr->remove){
@@ -215,7 +197,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         for(int i=n-1; i>=0; i--){
           newlink = alloc_link(ptr, i);
           if(travtype == 1)
-            newlink = assign_dendnode_child(newlink, ptr, i, fast);
+            newlink = assign_dendnode_child(newlink, ptr, i);
           newlink->next = ptr->next;
           ptr->next = newlink;
         }
@@ -245,19 +227,15 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
  * execute here due to R interrupts. on.exit() used in R to 
  * account for this.
  */
-SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order, SEXP isFast){
+SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
   /* 0 for preorder, 1 for postorder */
   leafSymbol = install("leaf");
   short travtype = INTEGER(order)[0];
-  int fast = LOGICAL(isFast)[0];
-  if(fast){
-    /* fast execution replicates `[[.dendrogram` in C */
-    class = PROTECT(allocVector(STRSXP, 1));
-    SET_STRING_ELT(class, 0, mkChar("dendrogram"));
-  } else {
-    /* slow execution asks R for `[[` on the object z*/
-    iSEXPval = PROTECT(allocVector(INTSXP, 1));
-  }
+
+  /* used to replicate stats:::`[[.dendrogram` in C */
+  class = PROTECT(allocVector(STRSXP, 1));
+  SET_STRING_ELT(class, 0, mkChar("dendrogram"));
+
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
 
@@ -268,7 +246,7 @@ SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order, SEXP isFast){
   dendrapply_ll->origLength = dendrapply_ll->isLeaf;
 
   /* Apply the function to the list */
-  treecopy = dendrapply_internal_func(dendrapply_ll, fn, env, travtype, fast);
+  treecopy = dendrapply_internal_func(dendrapply_ll, fn, env, travtype);
   
   /* Attempt to free the linked list and unprotect */
   free_dendrapply_list();
