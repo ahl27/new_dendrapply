@@ -9,12 +9,23 @@
  * faster than base `stats::dendrapply`, and deals with dendrograms
  * with high numbers of internal branches. Notably, this implementation
  * unrolls the recursion to prevent any possible stack overflow errors. 
+ * 
+ * Full Description of implementation:
+ *
+ * ll_S_dendrapply is essentially a doubly-linked list node struct with 
+ * some additional data. For each node, we lazily allocated a node containing
+ * a pointer to the SEXP object, a pointer to the next element of the linked list,
+ * and a pointer to the node containing the parent SEXP object from R. For each
+ * node in the dendrogram, we create a linked list node for it in C, allowing
+ * us to traverse the linked list iteratively to evaluate the function at all nodes.
+ * The secondary link is to reconstruct the original dendrogram structure.
+ * See the header file for description of the additional data in the struct.
  *
  */
 
 /* Global variable for on.exit() free */
 ll_S_dendrapply *dendrapply_ll;
-static SEXP leafSymbol, iSymbol, class;
+static SEXP leafSymbol, iSEXPval, class;
 static PROTECT_INDEX headprot;
 
 /* 
@@ -55,18 +66,26 @@ ll_S_dendrapply* assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrapply* p
  * If fast is FALSE, we build and apply a call to node[[i]] (NOT YET IMPLEMENTED)
  */
 SEXP get_dend_child(ll_S_dendrapply* link, int i, int fast, int shouldReclass){
+  /*
   SEXP curnode;
   if(fast){
     curnode = VECTOR_ELT(link->node, i);
     if(shouldReclass)
       classgets(curnode, class);
   } else {
-    /* Build call like in lapply: FUN(X[[<ind>]], ...) */
-    //SEXP tmp = PROTECT(lang3(R_Bracket2Symbol, node, iSymbol));
-    //SEXP R_fcall = PROTECT(lang3(FUN, iSymbol, R_DotsSymbol));
-    return(NULL);
+     * Build call like in lapply: FUN(X[[<ind>]], ...)
+     * does this need to be protected?
+    Rprintf("i: %d\n");
+    INTEGER(iSEXPval)[0] = i;
+    SEXP tmp = PROTECT(lang3(install("[["), link->node, iSEXPval));
+    curnode = R_forceAndCall(tmp, 1, env);
+    UNPROTECT(1);
   }
+  */
 
+  SEXP curnode = VECTOR_ELT(link->node, i);
+  if(shouldReclass)
+    classgets(curnode, class);
   return(curnode);
 }
 
@@ -236,8 +255,8 @@ SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order, SEXP isFast){
     class = PROTECT(allocVector(STRSXP, 1));
     SET_STRING_ELT(class, 0, mkChar("dendrogram"));
   } else {
-    /* slow execution lets R evaluate class values */
-    iSymbol = install("i");
+    /* slow execution asks R for `[[` on the object z*/
+    iSEXPval = PROTECT(allocVector(INTSXP, 1));
   }
   SEXP treecopy;
   PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
