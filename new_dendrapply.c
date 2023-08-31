@@ -73,12 +73,10 @@ SEXP get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
 
 /*
  * Apply function to a dendrogram node
- * CONSUMES TWO SPACES ON PROTECT STACK
+ * CONSUMES ONE SPACE ON PROTECT STACK
  */
-SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env){
-  SEXP call = PROTECT(LCONS(f, LCONS(link->node, R_NilValue)));
-  SEXP newnode = PROTECT(R_forceAndCall(call, 1, env));
-  return(newnode);
+inline SEXP apply_func_dend_node(ll_S_dendrapply* link, SEXP f, SEXP env){
+  return(PROTECT(R_forceAndCall(lang2(f, link->node), 1, env)));
 }
 
 /* 
@@ -111,13 +109,11 @@ void free_dendrapply_list(){
  */
 SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short travtype){
   ll_S_dendrapply *ptr, *prev;
-  SEXP node, call, newnode, leafVal;
+  SEXP node, newnode, leafVal;
 
   /* for inorder traversal, apply function to root and reprotect it */
   if(travtype == 0){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
-    REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
-    UNPROTECT(1);
+    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
   }
 
   int n, nv;
@@ -128,7 +124,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
     /* lazily populate node, apply function to it as well */
     if (travtype==0 && ptr->isLeaf==-1){
       ptr = assign_dendnode_child(ptr, ptr->parent, ptr->v);
-      ptr->node = apply_func_dend_node(ptr, f, env);
+      ptr->node = PROTECT(R_forceAndCall(lang2(f, ptr->node), 1, env));
 
       n = length(ptr->parent->node);
       nv = ptr->v;
@@ -139,7 +135,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         nv += ptr->parent->origLength;
       }
 
-      UNPROTECT(2);
+      UNPROTECT(1);
 
       /* double child access because it avoids a protect */
       ptr->node = get_dend_child(ptr->parent, ptr->v, 0);
@@ -165,10 +161,10 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         if(travtype == 0){
           SET_VECTOR_ELT(prev->node, ptr->v, ptr->node);
         } else if(travtype == 1){
-          newnode = apply_func_dend_node(ptr, f, env);
+          newnode = PROTECT(R_forceAndCall(lang2(f, ptr->node), 1, env));
           prev = ptr->parent;
           SET_VECTOR_ELT(prev->node, ptr->v, newnode);
-          UNPROTECT(2);
+          UNPROTECT(1);
         }
         prev->isLeaf -= 1;
 
@@ -209,9 +205,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
 
   /* apply function to the root node (last) if post-order traversal */
   if (travtype == 1){
-    call = PROTECT(LCONS(f, LCONS(head->node, R_NilValue)));
-    REPROTECT(head->node = R_forceAndCall(call, 1, env), headprot);
-    UNPROTECT(1);
+    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
   }
   
   return head->node;
