@@ -38,5 +38,5 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   }
 
   ## Else we apply the function to all nodes
-  return(.Call("C_dendrapply", X, wrapper, parent.frame(), travtype))
+  return(.Call("dendrapply", X, wrapper, parent.frame(), travtype))
 }
