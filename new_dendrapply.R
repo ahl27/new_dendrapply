@@ -20,13 +20,12 @@ dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
   ## Main function
   wrapper <- function(node) {
     res<-FUN(node, ...)
-    if(!is.leaf(node)){
+    if(travtype==0L && !is.leaf(node) && !inherits(res, c("dendrogram", "list"))){
       ## We always have to apply the function to children!
       ## Sometimes application of the function destroys child nodes
       ## ex. `dendrapply(dend, labels)` converts dendrogram nodes to character vectors
       ## So here we overwrite destroyed unevaluated nodes with their original state
-      if(!(inherits(res,c("dendrogram", "list"))))
-        res[seq_along(node)] <- node[]
+      res[seq_along(node)] <- node[]
     }
     res
   }
