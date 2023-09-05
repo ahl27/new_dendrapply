@@ -8,11 +8,11 @@
  * nodes of a dendrogram object. This implementation runs roughly 2x
  * faster than base `stats::dendrapply`, and deals with dendrograms
  * with high numbers of internal branches. Notably, this implementation
- * unrolls the recursion to prevent any possible stack overflow errors. 
- * 
+ * unrolls the recursion to prevent any possible stack overflow errors.
+ *
  * Full Description of implementation:
  *
- * ll_S_dendrapply is essentially a doubly-linked list node struct with 
+ * ll_S_dendrapply is essentially a doubly-linked list node struct with
  * some additional data. For each node, we lazily allocated a node containing
  * a pointer to the SEXP object, a pointer to the next element of the linked list,
  * and a pointer to the node containing the parent SEXP object from R. For each
@@ -29,8 +29,8 @@ static SEXP leafSymbol, class;
 static PROTECT_INDEX headprot;
 static int throwWarning;
 
-/* 
- * Function to allocate a dummy LL node 
+/*
+ * Function to allocate a dummy LL node
  * Lazy, values are filled with drp_assign_dendnode_child
  */
 ll_S_dendrapply* drp_alloc_link(ll_S_dendrapply* parentlink, int i){
@@ -46,7 +46,7 @@ ll_S_dendrapply* drp_alloc_link(ll_S_dendrapply* parentlink, int i){
   return link;
 }
 
-/* 
+/*
  * Assign the child of a node to a link
  * Some traversals use lazy evaluation; this fills in these unevaluated nodes
  */
@@ -62,7 +62,7 @@ ll_S_dendrapply* drp_assign_dendnode_child(ll_S_dendrapply* link, ll_S_dendrappl
 
 /*
  * Get the i'th element of a dendrogram node
- * Replicates functionality of stats:::`[[.dendrogram` 
+ * Replicates functionality of stats:::`[[.dendrogram`
  * without having to go back into R
  */
 SEXP drp_get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
@@ -72,7 +72,7 @@ SEXP drp_get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass){
   return(curnode);
 }
 
-/* 
+/*
  * Frees the global linked list structure.
  *
  * Called using on.exit() in R for cases where
@@ -92,21 +92,25 @@ void free_dendrapply_list(){
 
 /*
  * Main workhorse function.
- * 
+ *
  * This function traverses the tree INORDER (as in stats::dendrapply)
- * or POSTORDER and applies the function to each node, then adds its 
- * children to the linked list. Once all the children of a node have 
- * been processed, the child subtrees are combined into the parent. 
- * R ensures that the dendrogram isn't a leaf, so this function assmes 
+ * or POSTORDER and applies the function to each node, then adds its
+ * children to the linked list. Once all the children of a node have
+ * been processed, the child subtrees are combined into the parent.
+ * R ensures that the dendrogram isn't a leaf, so this function assumes
  * the dendrogram has at least two members.
  */
 SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short travtype){
   ll_S_dendrapply *ptr, *prev;
   SEXP node, newnode, leafVal;
+  SEXP nodeSym = install("node");
+  SEXP R_fcall = PROTECT(lang2(f, nodeSym));
+  MARK_NOT_MUTABLE(R_fcall);
 
   /* for inorder traversal, apply function to root and reprotect it */
   if(travtype == 0){
-    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
+    defineVar(nodeSym, head->node, env);
+    REPROTECT(head->node = R_forceAndCall(R_fcall, 1, env), headprot);
   }
 
   int n, nv;
@@ -114,11 +118,12 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
   prev = head;
   while(ptr){
     R_CheckUserInterrupt();
-    
+
     if (travtype==0 && ptr->isLeaf==-1){
       /* lazily populate node and apply function to it */
       ptr = drp_assign_dendnode_child(ptr, ptr->parent, ptr->v);
-      ptr->node = PROTECT(R_forceAndCall(lang2(f, ptr->node), 1, env));
+      defineVar(nodeSym, ptr->node, env);
+      ptr->node = PROTECT(R_forceAndCall(R_fcall, 1, env));
 
       n = length(ptr->parent->node);
       nv = ptr->v;
@@ -126,7 +131,7 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
       while(nv < n){
         /*
          * replicating a quirk of stats::dendrapply that CRAN depends on.
-         * error message may need some work 
+         * error message may need some work
          */
         SET_VECTOR_ELT(ptr->parent->node, nv, ptr->node);
         nv += ptr->parent->origLength;
@@ -151,15 +156,16 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
     } else if(ptr->isLeaf == 0) {
       /* If the LL node is a leaf or completely merged subtree, merge it upwards */
       while(ptr->isLeaf == 0 && ptr != head){
-        /* 
-         * merge upwards; protection unneeded since parent already protected 
+        /*
+         * merge upwards; protection unneeded since parent already protected
          * postorder traversal evaluates the function at this point, preorder does not
          */
         prev = ptr->parent;
         if(travtype == 0){
           SET_VECTOR_ELT(prev->node, ptr->v, ptr->node);
         } else if(travtype == 1){
-          newnode = PROTECT(R_forceAndCall(lang2(f, ptr->node), 1, env));
+          defineVar(nodeSym, ptr->node, env);
+          newnode = PROTECT(R_forceAndCall(R_fcall, 1, env));
           prev = ptr->parent;
           SET_VECTOR_ELT(prev->node, ptr->v, newnode);
           UNPROTECT(1);
@@ -181,11 +187,11 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
       node = ptr->node;
       n = ptr->origLength;
       leafVal = getAttrib(node, leafSymbol);
-      
+
       if(isNull(leafVal) || (!LOGICAL(leafVal)[0])){
         ll_S_dendrapply *newlink;
         /*
-         * iterating from end to beginning to ensure 
+         * iterating from end to beginning to ensure
          * we traverse depth-first instead of breadth
          */
         for(int i=n-1; i>=0; i--){
@@ -197,26 +203,30 @@ SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, short tra
         }
       }
       prev = ptr;
-      ptr = ptr->next; 
+      ptr = ptr->next;
     }
   }
 
   /* apply function to the root node (last) if post-order traversal */
   if (travtype == 1){
-    REPROTECT(head->node = R_forceAndCall(lang2(f, head->node), 1, env), headprot);
+    defineVar(nodeSym, head->node, env);
+    REPROTECT(head->node = R_forceAndCall(R_fcall, 1, env), headprot);
   }
-  
+
+  /* unprotect the R_fcall */
+  UNPROTECT(1);
+
   return head->node;
 }
 
 /*
  * Main Function
- * 
+ *
  * Calls helper functions to build linked list,
  * apply function to all nodes, and reconstruct
- * the dendrogram object. Attempts to free the linked list 
- * at termination, but note memory free not guaranteed to 
- * execute here due to R interrupts. on.exit() used in R to 
+ * the dendrogram object. Attempts to free the linked list
+ * at termination, but note memory free not guaranteed to
+ * execute here due to R interrupts. on.exit() used in R to
  * account for this.
  */
 SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
@@ -240,7 +250,7 @@ SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order){
 
   /* Apply the function to the list */
   treecopy = dendrapply_internal_func(dendrapply_ll, fn, env, travtype);
-  
+
   /* Throwing a warning if it triggered, may need some work */
   if(throwWarning==1)
     warning("`dendrapply` replicated the return value of at least one function call.");

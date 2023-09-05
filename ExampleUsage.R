@@ -23,7 +23,7 @@ exFunc <- function(node){
 }
 
 # runs all and checks runtimes, speedup is about 2x for me
-to_check <- c(5, 10, 25, 50, 100)#, 500, 1000#, 2500, 5000, 7500, 10000)
+to_check <- c(5, 10, 25, 50, 100, 500, 1000, 2500, 5000, 7500, 10000)
 resNew <- resOld <- rep(Inf, length(to_check))
 for(i in seq_along(to_check)){
   cat(to_check[i], 'leaves\n')

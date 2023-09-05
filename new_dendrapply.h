@@ -10,7 +10,7 @@
  *  - isLeaf: Counter encoding unmerged children. 0 if leaf or leaf-like subtree.
  *  - parent: pointer to node holding the parent node in the tree
  *  -   next: next linked list element
- * 
+ *
  */
 typedef struct ll_S_dendrapply {
   SEXP node;
@@ -34,4 +34,4 @@ SEXP dendrapply_internal_func(ll_S_dendrapply *head, SEXP f, SEXP env, short tra
 void free_dendrapply_list(void);
 
 /* .Call Interface Functions */
-SEXP C_dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);
+SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);
