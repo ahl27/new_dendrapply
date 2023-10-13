@@ -2,11 +2,13 @@
 
 New dendrapply implementation. Bug reports and suggestions for improvement are welcome.
 
+**NOTE**: I am not keeping this code updated. The only file that I am committing to keeping up to date is the `new_dendrapply.patch`, which should work to patch R when building from source. If you're interested in using this implementation, please use the patch file. If you're just interested in seeing how it's implemented, the code available should be close enough.
+
 See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the implementation and changes.
 
 ## Highlights:
 - Unrolled recursion, no stack issues
-- 2-3x runtime speedup
+- ~5x runtime speedup
 - Significant memory improvement 
   - Observed up to 10x reduction in `profvis`, still working on concrete benchmarks aside from that
   - Difficult to measure difference since `stats` allocates in R and new implementation allocates in C
