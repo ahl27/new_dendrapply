@@ -4,7 +4,7 @@ New dendrapply implementation. Bug reports and suggestions for improvement are w
 
 **NOTE**: I am not keeping this code updated. The only file that I am committing to keeping up to date is the `new_dendrapply.patch`, which should work to patch R when building from source. If you're interested in using this implementation, please use the patch file. If you're just interested in seeing how it's implemented, the code available should be close enough.
 
-See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the implementation and changes.
+See https://www.ahl27.com/posts/2023/02/dendrapply/ for the full write-up on the implementation and changes. The most up-to-date code and discussion will always be available on [Bugzilla 18480](https://bugs.r-project.org/show_bug.cgi?id=18480).
 
 ## Highlights:
 - Unrolled recursion, no stack issues
