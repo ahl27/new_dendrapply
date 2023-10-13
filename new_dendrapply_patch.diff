@@ -1,0 +1,602 @@
+diff --git a/src/library/stats/R/dendrogram.R b/src/library/stats/R/dendrogram.R
+index 37c1bb2fb6..c447f72c19 100644
+--- a/src/library/stats/R/dendrogram.R
++++ b/src/library/stats/R/dendrogram.R
+@@ -822,28 +822,64 @@ merge.dendrogram <- function(x, y, ..., height,
+     midcache.dendrogram(r, quiet=TRUE)
+ }
+ 
+-dendrapply <- function(X, FUN, ...)
+-{
+-    ## Purpose: "dendrogram" recursive apply {to each node}
+-    ## ----------------------------------------------------------------------
+-    ## Author: Martin Maechler, Date: 26 Jun 2004, 22:43
+-    FUN <- match.fun(FUN)
+-    if( !inherits(X, "dendrogram") ) stop("'X' is not a dendrogram")
+-
+-    ## Node apply recursively:
+-    Napply <- function(d) {
+-	r <- FUN(d, ...)
+-	if(!is.leaf(d)) {
+-	    if(!is.list(r)) r <- as.list(r) # fixing unsafe FUN()s
+-	    if(length(r) < (n <- length(d))) r[seq_len(n)] <- vector("list", n)
+-	    ## and overwrite recursively, possibly keeping "attr"
+-	    r[] <- lapply(d, Napply)
+-        }
+-	r
++dendrapply <- function(X, FUN, ..., how=c("pre.order", "post.order")){
++  ##
++  ## dendrapply: applies function recursively to dendrogram object
++  ## -------------
++  ## Author: Aidan Lakshman (AHL27@pitt.edu), Date: 08/31/2023
++  ## Original function by Martin Maechler, 2004
++  ##
++  apply_method <- match.arg(how)
++  travtype <- switch(apply_method, pre.order=0L, post.order=1L)
++
++  ## At some point I'd like to open this up to general nested lists
++  ## This would require an alternate way to determine what is a leaf
++  if (!inherits(X, "dendrogram")) stop("'X' is not a dendrogram")
++
++  ## Free allocated memory in case of early termination
++  on.exit(.C(C_free_dendrapply_list))
++
++  ## Main function
++  wrapper <- function(node) {
++    res<-FUN(node, ...)
++    if(travtype==0L && !is.leaf(node) && !inherits(res, c("dendrogram", "list"))){
++      ## We always have to apply the function to children!
++      ## Sometimes application of the function destroys child nodes
++      ## ex. `dendrapply(dend, labels)` converts dendrogram nodes to character vectors
++      ## So here we overwrite destroyed unevaluated nodes with their original state
++      res[seq_along(node)] <- node[]
+     }
+-    Napply(X)
++    res
++  }
++
++  ## If we only have one node, it'll hang
++  ## We can get around this by just applying the function to the leaf
++  ## and returning--no need for C code here.
++  if(!is.null(attr(X, "leaf")) && attr(X,"leaf")){
++  }
++
++  ## Else we apply the function to all nodes
++  return(.Call(C_dendrapply, X, wrapper, parent.frame(), travtype))
+ }
+ 
++old_dendrapply <- function (X, FUN, ...)
++{
++  FUN <- match.fun(FUN)
++  if (!inherits(X, "dendrogram"))
++    stop("'X' is not a dendrogram")
++  Napply <- function(d) {
++    r <- FUN(d, ...)
++    if (!is.leaf(d)) {
++      if (!is.list(r))
++        r <- as.list(r)
++      if (length(r) < (n <- length(d)))
++        r[seq_len(n)] <- vector("list", n)
++      r[] <- lapply(d, Napply)
++    }
++    r
++  }
++  Napply(X)
++}
+ 
+ ## original Andy Liaw; modified RG, MM :
+ heatmap <-
+diff --git a/src/library/stats/man/dendrapply.Rd b/src/library/stats/man/dendrapply.Rd
+index 51d2272b81..bf81d22ff8 100644
+--- a/src/library/stats/man/dendrapply.Rd
++++ b/src/library/stats/man/dendrapply.Rd
+@@ -1,6 +1,7 @@
+ % File src/library/stats/man/dendrapply.Rd
+ % Part of the R package, https://www.R-project.org
+-% Copyright 1995-2015 R Core Team
++% Copyright 1995-2020 R Core Team
++% Copyright 2002-2015 The R Foundation
+ % Distributed under GPL 2 or later
+ 
+ \name{dendrapply}
+@@ -13,8 +14,9 @@
+   \code{y.node[j] <- FUN( x.node[j], ...)} (where \code{y.node[j]} is an
+   (invalid!) notation for the j-th node of y).
+ }
++
+ \usage{
+-dendrapply(X, FUN, ...)
++dendrapply(X, FUN, ..., how = c("pre.order", "post.order"))
+ }
+ \arguments{
+   \item{X}{an object of class \code{"\link{dendrogram}"}.}
+@@ -22,25 +24,61 @@ dendrapply(X, FUN, ...)
+     typically working on its \code{\link{attributes}} alone, returning an
+     altered version of the same node.}
+   \item{\dots}{potential further arguments passed to \code{FUN}.}
++  \item{how}{one of \code{c("pre.order", "post.order")}, or an
++  unambiguous abbreviation. Determines if nodes should be evaluated
++  according to an preorder (default) or postorder traversal. See details
++  for more information.}
++}
++\details{
++  \code{"pre.order"} preserves the functionality of the previous
++  \code{dendrapply}. For each node \code{n}, \code{FUN} is applied
++  first to \code{n}, then to \code{n[[1]]} (and any children it may have),
++  then \code{n[[2]]} and its children, etc. Notably, each node is evaluted
++  \emph{prior to any} of its children.
++
++  \code{"post.order"} allows for calculations that depend on the
++  children of a given node. For each node \code{n}, \code{FUN} is
++  applied first to \emph{all} children of \code{n}, then is applied to
++  \code{n} itself. Notably, each node is evaluated \emph{after all} of
++  its children.
+ }
+ \value{
+   Usually a dendrogram of the same (graph) structure as \code{X}.
+   For that, the function must be conceptually of the form
+   \code{FUN <- function(X) { attributes(X) <- .....;  X }},
+   i.e., returning the node with some attributes added or changed.
++
++  If the function provided does not return the node, the result is
++  a nested list of the same structure as \code{X}, or as close as can
++  be achieved with the return values. If the function should only be
++  applied to the leaves of \code{X}, consider using
++  \code{\link[base]{rapply}} instead.
+ }
+-\author{Martin Maechler}
++\author{Aidan Lakshman \email{ahl27@pitt.edu}.
++
++Original function and documentation by Martin Maechler.}
+ \note{
+-  The implementation is somewhat experimental and suggestions for
+-  enhancements (or nice examples of usage) are very welcome.  The
+-  current implementation is \emph{recursive} and inefficient for
+-  dendrograms with many non-leaves.  See the \sQuote{Warning} in
+-  \code{\link{dendrogram}}.
++  The prior implementation of \code{dendrapply} was recursive and
++  inefficient for dendrograms with many non-leaves. This version is
++  no longer recursive, and thus should no longer cause issues stemming
++  from insufficient C stack size (as mentioned in the 'Warning' in
++  \code{\link[stats]{dendrogram}}).
+ }
+-\seealso{\code{\link{as.dendrogram}}, \code{\link{lapply}} for applying
+-  a function to each component of a \code{list}, \code{\link{rapply}}
+-  for doing so to each non-list component of a nested list.
++\section{Warning}{\code{dendrapply} identifies leaf nodes as nodes
++  such that \code{attr(node, 'leaf') == TRUE}, and internal nodes
++  as nodes such that \code{attr(node, 'leaf') \%in\% c(NULL, FALSE)}.
++  If you modify or remove this attribute, \code{dendrapply} may perform
++  unexpectedly.
+ }
++
++\seealso{\code{\link{as.dendrogram}}, \code{\link[base]{lapply}}
++  for applying a function to each component of a list.
++
++  \code{\link[base]{rapply}} is particularly useful for applying a
++  function to the leaves of a dendrogram, and almost always be used
++  when the function does not need to be applied to interior nodes due
++  to significantly better performance.}
++
+ \examples{
+ require(graphics)
+ 
+@@ -70,5 +108,28 @@ op <- par(mfrow = 2:1)
+  plot(dhc21)
+  plot(dL) ## --> colored labels!
+ par(op)
++
++## Illustrating difference between pre.order and post.order
++dend <- as.dendrogram(hclust(dist(seq_len(4L))))
++
++f <- function(x){
++  if(!is.null(attr(x, 'leaf'))){
++    v <- as.character(attr(x, 'label'))
++  } else {
++    v <- paste0(attr(x[[1]], 'newattr'), attr(x[[2]], 'newattr'))
++  }
++  attr(x, 'newattr') <- v
++  x
++}
++
++# trying with default, note character(0) entries
++preorder_try <- dendrapply(dend, f)
++dendrapply(preorder_try, \(x){ print(attr(x, 'newattr')); x })
++
++## trying with postorder, note that children nodes will already
++## have been populated, so no character(0) entries
++postorder_try <- dendrapply(dend, f, how='post.order')
++dendrapply(postorder_try, \(x){ print(attr(x, 'newattr')); x })
++
+ }
+ \keyword{iteration}
+diff --git a/src/library/stats/src/Makefile.in b/src/library/stats/src/Makefile.in
+index e91ed92fb2..6b7f5c47ec 100644
+--- a/src/library/stats/src/Makefile.in
++++ b/src/library/stats/src/Makefile.in
+@@ -25,7 +25,7 @@ SOURCES_C = init.c kmeans.c \
+   mAR.c pacf.c starma.c port.c family.c sbart.c \
+   approx.c loglin.c lowess.c massdist.c splines.c lm.c \
+   complete_cases.c cov.c deriv.c fft.c fourier.c model.c optim.c optimize.c \
+-  integrate.c random.c distn.c zeroin.c rcont.c influence.c
++  integrate.c random.c distn.c zeroin.c rcont.c influence.c dendrapply.c
+ 
+ SOURCES_F = bsplvd.f bvalue.f bvalus.f loessf.f ppr.f qsbart.f \
+   sgram.f sinerp.f sslvrg.f stxwx.f \
+diff --git a/src/library/stats/src/Makefile.win b/src/library/stats/src/Makefile.win
+index 05c59c6bb5..59d4b35840 100644
+--- a/src/library/stats/src/Makefile.win
++++ b/src/library/stats/src/Makefile.win
+@@ -22,7 +22,7 @@ SOURCES_C = init.c kmeans.c \
+   mAR.c pacf.c starma.c port.c family.c sbart.c \
+   approx.c loglin.c lowess.c massdist.c splines.c lm.c \
+   complete_cases.c cov.c deriv.c fft.c fourier.c model.c optim.c optimize.c \
+-  integrate.c random.c distn.c zeroin.c rcont.c influence.c
++  integrate.c random.c distn.c zeroin.c rcont.c influence.c dendrapply.c
+ 
+ SOURCES_F = bsplvd.f bvalue.f bvalus.f loessf.f ppr.f qsbart.f \
+   sgram.f sinerp.f sslvrg.f stxwx.f \
+diff --git a/src/library/stats/src/dendrapply.c b/src/library/stats/src/dendrapply.c
+new file mode 100644
+index 0000000000..8f66bbb0e9
+--- /dev/null
++++ b/src/library/stats/src/dendrapply.c
+@@ -0,0 +1,313 @@
++/*  R : A Computer Language for Statistical Data Analysis
++ *
++ *  Copyright (C) 2023  The R Core Team
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, a copy is available at
++ *  https://www.R-project.org/Licenses/.
++ */
++
++/*
++ * Author: Aidan Lakshman
++ * Contact: AHL27@pitt.edu
++ *
++ * This is a set of C functions that apply an R function to all internal
++ * nodes of a dendrogram object. This implementation runs roughly 2x
++ * faster than base `stats::dendrapply`, and deals with dendrograms
++ * with high numbers of internal branches. Notably, this implementation
++ * unrolls the recursion to prevent any possible stack overflow errors.
++ *
++ * Full Description of implementation:
++ *
++ * ll_S_dendrapply is essentially a doubly-linked list node struct with
++ * some additional data. For each node, we lazily allocated a node containing
++ * a pointer to the SEXP object, a pointer to the next element of the linked list,
++ * and a pointer to the node containing the parent SEXP object from R. For each
++ * node in the dendrogram, we create a linked list node for it in C, allowing
++ * us to traverse the linked list iteratively to evaluate the function at all nodes.
++ * The secondary link is to reconstruct the original dendrogram structure.
++ * See below for description of the additional data in the struct.
++ *
++ */
++
++#include <R.h>
++#include <Rinternals.h>
++#include "statsR.h"
++#include "stats.h"
++
++/*
++ * Linked list struct
++ *
++ * Each node of the tree is added with the following args:
++ *  -       node: tree node, as a pointer to SEXPREC object
++ *  -          v: location in parent node's list
++ *  -     isLeaf: Counter encoding unmerged children. 0 if leaf or leaf-like subtree.
++ *  - origLength: original length of the node before applying function
++ *  -     parent: pointer to node holding the parent node in the tree
++ *  -       next: next linked list element
++ *
++ */
++typedef struct ll_S_dendrapply {
++  SEXP node;
++  int v;
++  unsigned int remove : 1;
++  signed int isLeaf : 7;
++  unsigned int origLength;
++  struct ll_S_dendrapply *parent;
++  struct ll_S_dendrapply *next;
++} ll_S_dendrapply;
++
++
++/* Global variable for on.exit() free */
++ll_S_dendrapply *dendrapply_ll;
++static SEXP leafSymbol, class;
++static PROTECT_INDEX headprot;
++static Rboolean throwWarning;
++
++/*
++ * Function to allocate a dummy LL node
++ * Lazy, values are filled with drp_assign_dendnode_child
++ */
++ll_S_dendrapply* drp_alloc_link(ll_S_dendrapply* parentlink, int i) {
++    ll_S_dendrapply *link = malloc(sizeof(ll_S_dendrapply));
++    link->node = NULL;
++    link->isLeaf = -1;
++    link->origLength = 0;
++    link->next = NULL;
++    link->v = i;
++    link->parent = parentlink;
++    link->remove = 0;
++
++    return link;
++}
++
++/*
++ * Get the i'th element of a dendrogram node
++ * Replicates functionality of stats:::`[[.dendrogram`
++ * without having to go back into R
++ */
++SEXP drp_get_dend_child(ll_S_dendrapply* link, int i, int shouldReclass) {
++    SEXP curnode = VECTOR_ELT(link->node, i);
++    if(shouldReclass)
++	classgets(curnode, class);
++    return(curnode);
++}
++
++/*
++ * Assign the child of a node to a link
++ * Some traversals use lazy evaluation; this fills in these unevaluated nodes
++ */
++ll_S_dendrapply* drp_assign_dendnode_child(ll_S_dendrapply* link,
++					   ll_S_dendrapply* parentlink, int i) {
++    SEXP curnode = drp_get_dend_child(parentlink, i, 1);
++    link->node = curnode;
++    SEXP ls = getAttrib(curnode, leafSymbol);
++    link->origLength = (isNull(ls) || (!LOGICAL(ls)[0])) ? length(curnode) : 0;
++    link->isLeaf = link->origLength; // -Wconversion warning  'signed char:7'
++    return link;
++}
++
++/*
++ * Frees the global linked list structure.
++ *
++ * Called using on.exit() in R for cases where
++ * execution is stopped early.
++ */
++void free_dendrapply_list() {
++    ll_S_dendrapply *ptr = dendrapply_ll;
++    while(dendrapply_ll) {
++	dendrapply_ll = dendrapply_ll->next;
++	free(ptr);
++	ptr=dendrapply_ll;
++    }
++    return;
++}
++
++
++
++
++/*
++ * Main workhorse function.
++ *
++ * This function traverses the tree and applies the function to each node.
++ * If INORDER, we apply the function to the node and then add its children
++ * to the linked list. If POSTORDER, we add children first, and apply the
++ * function once all children have been evaluated.
++ *
++ * Once all the children of a node have been processed, the child subtrees
++ * are combined into the parent (this is where function is applied for POSTORDER.
++ * R ensures that the dendrogram isn't a leaf, so this function assumes the
++ * dendrogram has at least two members.
++ */
++
++typedef enum { PRE_ORDER = 0, POST_ORDER } trav_t;
++
++SEXP dendrapply_internal_func(ll_S_dendrapply* head, SEXP f, SEXP env, trav_t travtype) {
++    ll_S_dendrapply *ptr, *prev;
++    SEXP node, newnode, leafVal;
++    SEXP nodeSym = install("node");
++    SEXP R_fcall = PROTECT(lang2(f, nodeSym));
++    MARK_NOT_MUTABLE(R_fcall);
++
++    /* for inorder traversal, apply function to root and reprotect it */
++    if(travtype == PRE_ORDER) {
++	defineVar(nodeSym, head->node, env);
++	REPROTECT(head->node = R_forceAndCall(R_fcall, 1, env), headprot);
++    }
++
++    int n, nv;
++    ptr = head;
++    prev = head;
++    while(ptr) {
++	R_CheckUserInterrupt();
++
++	if (travtype == PRE_ORDER && ptr->isLeaf==-1) {
++	    /* lazily populate node and apply function to it */
++	    ptr = drp_assign_dendnode_child(ptr, ptr->parent, ptr->v);
++	    defineVar(nodeSym, ptr->node, env);
++	    ptr->node = PROTECT(R_forceAndCall(R_fcall, 1, env));
++
++	    n = length(ptr->parent->node);
++	    nv = ptr->v;
++
++	    while(nv < n) {
++		/*
++		 * replicating a quirk of stats::dendrapply that CRAN depends on.
++		 * error message may need some work
++		 */
++		SET_VECTOR_ELT(ptr->parent->node, nv, ptr->node);
++		nv += ptr->parent->origLength;
++	    }
++	    UNPROTECT(1);
++
++	    if(n % ptr->parent->origLength != 0) {
++		/* set signal to throw a warning if the above while loop triggered */
++		throwWarning = TRUE;
++	    }
++
++	    /* double child access because it avoids a protect */
++	    ptr->node = drp_get_dend_child(ptr->parent, ptr->v, 0);
++	}
++
++	if (ptr->remove) {
++	    /* these are nodes flagged for deletion */
++	    prev->next = prev->next->next;
++	    free(ptr);
++	    ptr = prev->next;
++
++	} else if(ptr->isLeaf == 0) {
++	    /* If the LL node is a leaf or completely merged subtree, merge it upwards */
++	    while(ptr->isLeaf == 0 && ptr != head) {
++		/*
++		 * merge upwards; protection unneeded since parent already protected
++		 * postorder traversal evaluates the function at this point, preorder does not
++		 */
++		prev = ptr->parent;
++		if(travtype == PRE_ORDER) {
++		    SET_VECTOR_ELT(prev->node, ptr->v, ptr->node);
++		} else if(travtype == POST_ORDER) {
++		    defineVar(nodeSym, ptr->node, env);
++		    newnode = PROTECT(R_forceAndCall(R_fcall, 1, env));
++		    prev = ptr->parent;
++		    SET_VECTOR_ELT(prev->node, ptr->v, newnode);
++		    UNPROTECT(1);
++		}
++		prev->isLeaf -= 1;
++
++		/* flag node for deletion later */
++		ptr->remove = 1;
++		ptr = prev;
++		prev = ptr;
++		R_CheckUserInterrupt();
++	    }
++
++	    /* go to the next element so we don't re-add */
++	    ptr = ptr->next;
++
++	} else {
++	    /* ptr->isLeaf != 0, so we need to add nodes */
++	    node = ptr->node;
++	    n = ptr->origLength;
++	    leafVal = getAttrib(node, leafSymbol);
++
++	    if(isNull(leafVal) || (!LOGICAL(leafVal)[0])) {
++		ll_S_dendrapply *newlink;
++		/*
++		 * iterating from end to beginning to ensure
++		 * we traverse depth-first instead of breadth
++		 */
++		for(int i=n-1; i>=0; i--) {
++		    newlink = drp_alloc_link(ptr, i);
++		    if(travtype == POST_ORDER)
++			newlink = drp_assign_dendnode_child(newlink, ptr, i);
++		    newlink->next = ptr->next;
++		    ptr->next = newlink;
++		}
++	    }
++	    prev = ptr;
++	    ptr = ptr->next;
++	}
++    }
++
++    /* apply function to the root node (last) if post-order traversal */
++    if (travtype == POST_ORDER) {
++	defineVar(nodeSym, head->node, env);
++	REPROTECT(head->node = R_forceAndCall(R_fcall, 1, env), headprot);
++    }
++
++    /* Unprotect the R_fcall */
++    UNPROTECT(1);
++    return head->node;
++}
++
++/*
++ * Main Function
++ *
++ * Calls helper functions to build linked list,
++ * apply function to all nodes, and reconstruct
++ * the dendrogram object. Attempts to free the linked list
++ * at termination, but note memory free not guaranteed to
++ * execute here due to R interrupts. on.exit() used in R to
++ * account for this.
++ */
++SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order) {
++    /* 0 for preorder, 1 for postorder */
++    leafSymbol = install("leaf");
++    trav_t travtype = (trav_t) INTEGER(order)[0];
++    throwWarning = FALSE;
++
++    /* used to replicate stats:::`[[.dendrogram` in C */
++    class = PROTECT(allocVector(STRSXP, 1));
++    SET_STRING_ELT(class, 0, mkChar("dendrogram"));
++
++    SEXP treecopy;
++    PROTECT_WITH_INDEX(treecopy = duplicate(tree), &headprot);
++
++    /* Add the top of the tree into the list */
++    dendrapply_ll = drp_alloc_link(NULL, -1);
++    dendrapply_ll->node = treecopy;
++    dendrapply_ll->origLength = length(treecopy);
++    dendrapply_ll->isLeaf = (signed int) dendrapply_ll->origLength; 
++
++    /* Apply the function to the list */
++    treecopy = dendrapply_internal_func(dendrapply_ll, fn, env, travtype);
++
++    /* Throwing a warning if it triggered, may need some work */
++    if(throwWarning)
++	warning("`dendrapply` replicated the return value of at least one function call.");
++
++    /* Attempt to free the linked list and unprotect */
++    free_dendrapply_list();
++    UNPROTECT(2);
++    return treecopy;
++}
+diff --git a/src/library/stats/src/init.c b/src/library/stats/src/init.c
+index 9eb3a2eef4..df9bbe36be 100644
+--- a/src/library/stats/src/init.c
++++ b/src/library/stats/src/init.c
+@@ -40,6 +40,7 @@ static const R_CMethodDef CEntries[]  = {
+     C_DEF(kmeans_Lloyd, 9),
+     C_DEF(kmeans_MacQueen, 9),
+     C_DEF(rcont2,  8),
++    C_DEF(free_dendrapply_list, 0),
+     {NULL, NULL, 0}
+ };
+ 
+@@ -144,6 +145,7 @@ static const R_CallMethodDef CallEntries[] = {
+     CALLDEF(chisq_sim, 4),
+     CALLDEF(d2x2xk, 5),
+     CALLDEF(Smirnov_sim, 4),
++    CALLDEF(dendrapply, 4),
+ 
+     CALLDEF_MATH2_1(dchisq),
+     CALLDEF_MATH2_1(dexp),
+diff --git a/src/library/stats/src/stats.h b/src/library/stats/src/stats.h
+index 9b4e220d7c..1482083353 100644
+--- a/src/library/stats/src/stats.h
++++ b/src/library/stats/src/stats.h
+@@ -62,5 +62,7 @@ double R_zeroin2(double ax, double bx, double fa, double fb,
+ 		 double (*f)(double x, void *info), void *info, 
+ 		 double *Tol, int *Maxit);
+ 
++void free_dendrapply_list(void);
++
+ 
+ #endif
+diff --git a/src/library/stats/src/statsR.h b/src/library/stats/src/statsR.h
+index 3b2127e164..9297392504 100644
+--- a/src/library/stats/src/statsR.h
++++ b/src/library/stats/src/statsR.h
+@@ -148,6 +148,8 @@ SEXP do_rhyper(SEXP sn, SEXP sa, SEXP sb, SEXP sc);
+ 
+ SEXP do_rmultinom(SEXP sn, SEXP ssize, SEXP sprob);
+ 
++SEXP dendrapply(SEXP tree, SEXP fn, SEXP env, SEXP order);
++
+ /* Declarations for .External[2] entry points */
+ 
+ SEXP compcases(SEXP args);
